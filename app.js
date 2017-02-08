@@ -1,7 +1,5 @@
 'use strict';
 
-var tokens = [];
-
 function init() {
 	Homey.log('Google maps directions app ready!');
 }
@@ -15,8 +13,10 @@ Homey.manager('flow').on('action.com_google_maps_directions_driving', function(c
 			var duration = data.routes[0].legs[0].duration.text.replace('min', __('min'));
 			var distance = data.routes[0].legs[0].distance.text.replace('km', __('km'));
 			
-			set_token('driving_duration_in_traffic', Number(duration_in_traffic.substr(0,duration_in_traffic.indexOf(' '))));
-			set_token('driving_duration', Number(duration.substr(0,duration.indexOf(' '))));
+			Homey.manager('flow').trigger('gm_drivinginfo_asked', {
+				driving_duration_in_traffic: Number(duration_in_traffic.substr(0,duration_in_traffic.indexOf(' '))),
+				driving_duration: Number(duration.substr(0,duration.indexOf(' ')))
+			});
 			
 			if (Homey.manager('settings').get('enable_speech')) {
 				Homey.manager('speech-output').say(__('resultsDriving', {'summary': summary, 'duration_in_traffic': duration_in_traffic, 'distance': distance, 'duration': duration}));	
@@ -34,8 +34,6 @@ Homey.manager('flow').on('action.com_google_maps_directions_transit', function(c
 			var departure_time = data.routes[0].legs[0].departure_time.text;
 			var steps = data.routes[0].legs[0].steps.length;
 			
-			set_token('transit_duration', duration);
-			
 			if (Homey.manager('settings').get('enable_speech')) {
 				Homey.manager('speech-output').say(__('resultsTransit', {'duration': duration, 'departure_time': departure_time, 'steps': steps}));
 			}
@@ -52,8 +50,6 @@ Homey.manager('flow').on('action.com_google_maps_directions_bicycling', function
 			var duration = data.routes[0].legs[0].duration.text.replace('min', __('min'));
 			var distance = data.routes[0].legs[0].distance.text.replace('km', __('km'));
 			
-			set_token('bicycling_duration', duration);
-			
 			if (Homey.manager('settings').get('enable_speech')) {
 				Homey.manager('speech-output').say(__('resultsBicycling', {'summary': summary, 'duration': duration, 'distance': distance}));
 			}
@@ -69,8 +65,6 @@ Homey.manager('flow').on('action.com_google_maps_directions_walking', function(c
 			var summary = data.routes[0].summary;
 			var duration = data.routes[0].legs[0].duration.text.replace('min', __('min'));
 			var distance = data.routes[0].legs[0].distance.text.replace('km', __('km'));
-			
-			set_token('walking_duration', duration);
 			
 			if (Homey.manager('settings').get('enable_speech')) {
 				Homey.manager('speech-output').say(__('resultsWalking', {'summary': summary, 'duration': duration, 'distance': distance}));
@@ -128,36 +122,6 @@ function getRoute(origin, destination, mode, callback) {
 		Homey.manager('speech-output').say(__('errorDownloading'));
 		callback(new Error('errorDownloading'), null);
 	});
-}
-
-function set_token(name, value) {
-	var token = tokens.find(function (dev) {
-		return dev.id == name;
-	});
-	if (token) {
-		token.setValue(value,
-			function (err) {
-			if (err) return console.error('setValue error:', err);
-			Homey.log('Token '+ name +' updated, value: ' + value);
-		});
-		tokens.push(token);
-	} else {
-		Homey.log('Token not found, registering...');
-		
-		Homey.manager('flow').registerToken(name, {
-            type: 'number',
-            title: name
-        }, function (err, token) {
-            if (err) return console.error('registerToken error:', err);
-            
-            token.setValue(value, function (err) {
-                if (err) return console.error('setValue error:', err);
-				Homey.log('Token '+ name +' updated, value: ' + value);
-            });
-            tokens.push(token);
-        });
-        return;
-	}
 }
 
 module.exports.init = init;
